@@ -1,121 +1,122 @@
 
-var haystackSearchQuery = 'createRolesOnProduct';
+var haystackSearchQuery = 'passed';
 
 var reg = 'us'
 
 if(reg=='us') {
-    var kibanaDomain = '';
+    var kibanaDomain = 'logs.haystack.es';
+    var cookie = '';
+} else if (reg=='eu') {
+    var kibanaDomain = 'logs-euc.haystack.es';
+    var cookie = '';
+} else if (reg=='in') {
+    var kibanaDomain = 'logs-in.haystack.es';
+    var cookie = '';
+} else if (reg=='au') {
+    var kibanaDomain = 'logs-au.haystack.es';
+    var cookie = '';
+} else if (reg=='me') {
+    var kibanaDomain = 'logs-mec.haystack.es';
     var cookie = '';
 }
 
 
 var payload = {
-    "searches": [
+  "searches": [
       {
-        "header": {
-          "index": "freshid*",
-          "preference": 1721537483833
-        },
-        "body": {
-          "version": true,
-          "size": 2000,
-          "sort": [
-            {
-              "@timestamp": {
-                "order": "desc",
-                "unmapped_type": "boolean"
-              }
-            },
-            {
-              "offset": {
-                "order": "desc",
-                "unmapped_type": "boolean"
-              }
-            }
-          ],
-          "stored_fields": [
-            "*"
-          ],
-          "script_fields": {
-            "sherlock-url": {
-              "script": {
-                "source": "if (doc.containsKey('Sampled') && !doc['Sampled'].empty && doc['Sampled'].value == \"01\") { \n  return doc['TraceId'].value;\n} \nelse if (doc.containsKey('Sampled') && !doc['Sampled'].empty && doc['Sampled'].value == \"00\") { \n  return \"trace not sampled\"; \n} \nelse if (doc.containsKey('traceparent') && !doc['traceparent'].empty && doc['traceparent'].value != \"-\" && doc['traceparent'].value != \"\" ) {\n  def path = doc['traceparent'].value;\n\tdef first = path.indexOf(\"-\");\n\tdef newfield_one = path.substring(0,first);\n\tdef second = path.indexOf(\"-\", first + 1);\n\tdef newfield_second = path.substring(first + 1, second);\n\tdef last = path.lastIndexOf(\"-\");\n\tdef newfield_last = path.substring(last + 1);\n\treturn newfield_last == \"00\" ? \"trace not sampled\" : newfield_second;\n}\nelse if (doc.containsKey('x_trace_id') && !doc['x_trace_id'].empty && doc['x_trace_id'].value != \"-\" && doc['x_trace_id'].value != \"\" ) {\n  def path = doc['x_trace_id'].value;\n\tdef first = path.indexOf(\"-\");\n\tdef newfield_one = path.substring(0,first);\n\tdef second = path.indexOf(\"-\", first + 1);\n\tdef newfield_second = path.substring(first + 1, second);\n\tdef last = path.lastIndexOf(\"-\");\n\tdef newfield_last = path.substring(last + 1);\n\treturn newfield_last == \"00\" ? \"trace not sampled\" : newfield_second;\n}\nelse { \n  return \"trace not found\"; \n}",
-                "lang": "painless"
-              }
-            }
+          "header": {
+              "index": "freshid*",
+              "preference": 1742698352587
           },
-          "docvalue_fields": [
-            {
-              "field": "@timestamp",
-              "format": "date_time"
-            },
-            {
-              "field": "audit_id",
-              "format": "date_time"
-            },
-            {
-              "field": "eventTime",
-              "format": "date_time"
-            },
-            {
-              "field": "firstTimestamp",
-              "format": "date_time"
-            },
-            {
-              "field": "lastTimestamp",
-              "format": "date_time"
-            },
-            {
-              "field": "message_time",
-              "format": "date_time"
-            },
-            {
-              "field": "start_time",
-              "format": "date_time"
-            },
-            {
-              "field": "time",
-              "format": "date_time"
-            },
-            {
-              "field": "time_local",
-              "format": "date_time"
-            }
-          ],
-          "_source": {
-            "excludes": []
-          },
-          "query": {
-            "bool": {
-              "must": [
-                {
-                  "query_string": {
-                    "query": haystackSearchQuery,
-                    "analyze_wildcard": true,
-                    "default_operator": "AND",
-                    "time_zone": "Asia/Calcutta"
+          "body": {
+              "version": true,
+              "size": 2000,
+              "sort": [
+                  {
+                      "@timestamp": {
+                          "order": "desc",
+                          "unmapped_type": "boolean"
+                      }
+                  },
+                  {
+                      "offset": {
+                          "order": "desc",
+                          "unmapped_type": "boolean"
+                      }
                   }
-                }
               ],
-              "filter": [
-                {
-                  "range": {
-                    "@timestamp": {
-                      "gte": "2024-07-21T05:55:10.432Z",
-                      "lte": "2024-07-21T06:00:10.432Z",
-                      "format": "strict_date_optional_time"
-                    }
+              "stored_fields": [
+                  "*"
+              ],
+              "script_fields": {},
+              "docvalue_fields": [
+                  {
+                      "field": "@timestamp",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "audit_id",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "eventTime",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "firstTimestamp",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "lastTimestamp",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "start_time",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "time",
+                      "format": "date_time"
+                  },
+                  {
+                      "field": "time_local",
+                      "format": "date_time"
                   }
-                }
               ],
-              "should": [],
-              "must_not": []
-            }
-          },
-          "track_total_hits": true
-        }
+              "_source": {
+                  "excludes": []
+              },
+              "query": {
+                  "bool": {
+                      "must": [
+                          {
+                              "query_string": {
+                                  "query": haystackSearchQuery,
+                                  "analyze_wildcard": true,
+                                  "default_operator": "AND",
+                                  "time_zone": "Asia/Calcutta"
+                              }
+                          }
+                      ],
+                      "filter": [
+                          {
+                              "range": {
+                                  "@timestamp": {
+                                      "gte": "2025-03-23T03:48:34.685Z",
+                                      "lte": "2025-03-23T04:48:34.685Z",
+                                      "format": "strict_date_optional_time"
+                                  }
+                              }
+                          }
+                      ],
+                      "should": [],
+                      "must_not": []
+                  }
+              },
+              "track_total_hits": false
+          }
       }
-    ]
+  ]
 };
 
 
