@@ -11,11 +11,11 @@ var searchCompleted             = false;
 var search = true;
 
 
-// TILL HOURS is multiple of days * hours
-var TILL_HOURS  = 1 * 1;
-var BATCH_HOURS = 2;
+// SEARCH_WINDOW_MIN is multiple of days * hours * minutes
+var SEARCH_WINDOW_MIN  = 1 * 2 * 60;
+var BATCH_MIN = 10;
 
-var INTERVAL_MS = BATCH_HOURS*60*60*1000;
+var INTERVAL_MS = BATCH_MIN*60*1000;
 
 
 function init() {
@@ -26,7 +26,7 @@ function init() {
     }
 
     if(ENDING_TIME_ISO_STRING == '') {
-        dateVal.setTime(dateVal.getTime()-(TILL_HOURS*60*60*1000));
+        dateVal.setTime(dateVal.getTime()-(SEARCH_WINDOW_MIN*60*1000));
         ENDING_TIME_ISO_STRING = dateVal.toISOString();
     }
 }
@@ -100,9 +100,7 @@ function searchAndProcess() {
                 
                 for(let response of promise.haystack.data.body.responses){
                     for(let hit of response.hits.hits) {
-                        // console.dir(hit, { depth: null });
-                        // process.exit();
-
+                        console.dir(hit._source.message, { depth: null });
                     }
                 }
             }
