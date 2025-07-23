@@ -1,123 +1,81 @@
 
 const axios = require('axios');
-const response = require('./response.json')
 const req = require('./request')
 
 
-var STARTING_TIME_ISO_STRING    = '';
-var ENDING_TIME_ISO_STRING      = '';
-var searchCompleted             = false;
+var iterationLimit = 3;
+var windowExhausted = false;
 
-var search = true;
+var searchWindowStart = undefined;
+var searchWindowStop = undefined;
 
+var searchWindowMin = 13;
 
-// SEARCH_WINDOW_MIN is multiple of days * hours * minutes
-var SEARCH_WINDOW_MIN  = 1 * 2 * 60;
-var BATCH_MIN = 10;
-
-var INTERVAL_MS = BATCH_MIN*60*1000;
+var searchWindowIntervalMin = 1;
 
 
-function init() {
-    var dateVal     = new Date();
-
-    if(STARTING_TIME_ISO_STRING == '') {
-        STARTING_TIME_ISO_STRING = dateVal.toISOString();
-    }
-
-    if(ENDING_TIME_ISO_STRING == '') {
-        dateVal.setTime(dateVal.getTime()-(SEARCH_WINDOW_MIN*60*1000));
-        ENDING_TIME_ISO_STRING = dateVal.toISOString();
-    }
-}
-
-
-function processResonse(response) {
-    if(response?.data?.body?.responses.length>0 && response?.data?.body?.responses[0]?.hits?.hits.length>0) {
-        for(hit of response.data.body.responses[0].hits.hits) {
-            console.log(hit);
-        }
-    }
-}
-
-
-async function doHaystackSearch(batchStart, batchEnd) {
-    req.payload.searches[0].body.query.bool.filter[0].range["@timestamp"].gte = batchStart.toISOString();
-    req.payload.searches[0].body.query.bool.filter[0].range["@timestamp"].lte = batchEnd.toISOString();
-
-    req.options.data = JSON.stringify(req.payload);
-
-    try {
-        var response = await axios.request(req.options);
-        var responseData = {
-            timeWindow: `${batchStart.toISOString()} -- ${batchEnd.toISOString()}`,
-            haystack: response
-        };
-        return responseData;
-    } catch (err) {
-        console.log(`ExecutionError: ${err}`);
-        return undefined;
-    }
-
-}
-
-
-function searchAndProcess() {
+async function searchAndFetch(startTime, endTime) {
     
-    init();
+    let searchResponse = { startTime: startTime.toISOString(), endTime: endTime.toISOString() }
+    // console.log(`CurrentWindow startTime: ${startTime.toISOString()} endTime: ${endTime.toISOString()}`)
+
+    let reqPayload = req.getPayload();
+    reqPayload.searches[0].body.query.bool.filter[0].range["@timestamp"].gte = startTime.toISOString();
+    reqPayload.searches[0].body.query.bool.filter[0].range["@timestamp"].lte = endTime.toISOString();
+
+    let reqData = req.getOptions();
     
-    let batchStartTime = new Date(ENDING_TIME_ISO_STRING);
-    let endTime = new Date(STARTING_TIME_ISO_STRING);
-    let batchEndTime;
+    reqData.data = JSON.stringify(reqPayload);
+    var haystackResponse = await axios.request(reqData);
 
-    var responsePromises = [];
-
-    for(let i=0;i<100;i++) {
+    if(haystackResponse?.data?.body?.responses.length>0 && haystackResponse?.data?.body?.responses[0]?.hits?.hits.length>0) {
         
-        if((batchStartTime.getTime()+INTERVAL_MS) > endTime.getTime()) {
-            batchEndTime = new Date(endTime.getTime());
-        } else {
-            batchEndTime = new Date(batchStartTime.getTime()+INTERVAL_MS);
+        if(haystackResponse?.data?.body?.responses[0]?.hits.total >1999) {
+            // console.log(`------------ Revisit Time Frame: startTime: ${startTime} endTime: ${endTime} totalHits: ${haystackResponse?.data?.body?.responses[0]?.hits.total} ------------`);
+            searchResponse.hitsCount = haystackResponse?.data?.body?.responses[0]?.hits.total;
         }
 
-        if(batchStartTime.getTime()<batchEndTime.getTime()) {
-            // console.log(`${batchStartTime.toISOString()} - ${batchEndTime.toISOString()}`);
-            var haystackResponse = doHaystackSearch(batchStartTime, batchEndTime);
-            responsePromises.push(haystackResponse);
+        searchResponse.hits = [];
+        for (hit of haystackResponse.data.body.responses[0].hits.hits) {
+            // console.log(`${hit._source.msg}`);
+            searchResponse.hits.push(hit._source.msg)
+        }
+    }
+    return searchResponse;
+}
+
+async function main() {
+
+    if(searchWindowStart==undefined && searchWindowStop==undefined) {
+        if(searchWindowMin==undefined) {
+            console.error(`Search Window is not defined`);
+            process.exit();
         } else {
+            searchWindowStop = new Date();
+            searchWindowStart = new Date(searchWindowStop.getTime()-(searchWindowMin*60*1000));
+        }
+        console.log(`Search Window startTime: ${searchWindowStart.toISOString()} endTime: ${searchWindowStop.toISOString()}`)
+    }
+
+    let iterationCount = 0;
+    while(!windowExhausted && iterationCount<iterationLimit) {
+        iterationCount++;
+
+        let currentWindowStop = new Date(searchWindowStart.getTime() + searchWindowIntervalMin*60*1000);
+        if(searchWindowStart.getTime()>searchWindowStop.getTime()) {
+            windowExhausted = true;
             break;
         }
-        batchStartTime.setTime(batchEndTime.getTime())
+
+        let kibanaResponse = await searchAndFetch(searchWindowStart, currentWindowStop);
+        processResponse(kibanaResponse);
+        searchWindowStart = currentWindowStop;
     }
-
-    Promise.all(responsePromises).then(promises => {
-        promises.forEach(promise => {
-
-            console.log("---------------------------------------------------------------------------------")
-            console.log(`TimeWindow: ${promise.timeWindow}`)
-
-            if(promise.haystack?.data?.body?.responses.length>0 && promise.haystack?.data?.body?.responses[0]?.hits?.hits.length>0) {
-                
-                for(let response of promise.haystack.data.body.responses){
-                    for(let hit of response.hits.hits) {
-                        console.dir(hit._source.message, { depth: null });
-                    }
-                }
-            }
-        });
-    });
-
 }
 
-
-// ---------------------------------------------------------------------------------
-
-if(search) {
-    searchAndProcess()
-} else {
-    processResonse(response);
+function processResponse(response) {
+    console.dir(response, {depth: null});
 }
 
-// ---------------------------------------------------------------------------------
-
+main();
 
